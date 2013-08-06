@@ -37,11 +37,15 @@ specific commits (as opposed to the tip of a branch).
 This should give a snapshot of the repositories that work well together.
 (Note that there are many inter-dependencies between code in the
 repositories and checking out a different commit in one repository may break
-things in a different repository.)
+things in a different repository.)  This command also creates sym-links in a 
+directory inside the top level `$CLAW` directory. 
 
-If you want to also install the PyClaw Python components, you can then do::
+If you would like to use the PyClaw solvers, typing::
 
     pip install -e .
+
+will build the Fortran components of PyClaw and make the package available to 
+Python.
 
 If you want to use the Fortran versions in `classic`, `amrclaw`, `geoclaw`,
 etc., you need to set environment variables and proceed as described at
