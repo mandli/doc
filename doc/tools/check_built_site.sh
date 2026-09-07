@@ -19,6 +19,11 @@
 #   5. A version whitelist that silently dropped versions -- most importantly
 #      the sphinx-multiversion remote-ref behaviour that makes v5.14.x vanish
 #      in CI (see .github/workflows/docs-publish.yml).
+#   6. A build whose autodoc produced nothing.  When the Clawpack source tree
+#      is missing or unimportable, every `automodule` yields an empty section
+#      and Sphinx reports it only as a warning -- the site builds, promotes and
+#      publishes with all of its API pages blank.  Checks 1-5 all pass on such
+#      a tree, so the content itself has to be asserted.
 
 set -euo pipefail
 
@@ -81,6 +86,23 @@ if [ "$n_versions" -lt "$MIN_VERSIONS" ]; then
     fail "found $n_versions version dirs, expected at least $MIN_VERSIONS"
 fi
 pass "$n_versions version dirs, all with a non-empty index.html"
+
+# 6. autodoc actually ran.  Each probe is a page and a symbol that page can
+# only contain if the corresponding Clawpack subpackage was importable, so
+# between them they cover geoclaw, pyclaw and riemann.  Only `dev` is checked:
+# older version dirs come from tags whose page names differ.
+api_probe() {
+    local page="$HTML/dev/$1" symbol="$2"
+    [ -f "$page" ] || fail "$page missing -- expected an API page for $symbol"
+    grep -q "$symbol" "$page" \
+        || fail "$page does not mention '$symbol' -- autodoc produced no
+       content, so the published API docs would be empty.  Check the build log
+       for 'autodoc: failed to import', and run tools/check_doc_env.py."
+}
+
+api_probe topotools_module.html clawpack.geoclaw.topotools.Topography
+api_probe pyclaw/solution.html clawpack.pyclaw.solution.Solution
+pass "dev API pages contain generated autodoc content"
 
 echo
 echo "$HTML looks publishable."

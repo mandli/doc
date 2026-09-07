@@ -35,10 +35,20 @@ _logging_config.fileConfig = _safe_fileConfig
 # If your extensions are in another directory, add it here. If the directory
 # is relative to the documentation root, use os.path.abspath to make it
 # absolute, like shown here.
-sys.path.append(os.path.abspath('../..'))
 sys.path.append(os.path.abspath('./ext'))
+sys.path.append(os.path.abspath('./tools'))
 
-clawpack_root = os.path.abspath('../..')
+# autodoc documents a Clawpack *source* tree, not an installed clawpack: the
+# root below goes on sys.path and clawpack/__init__.py's shim maps
+# clawpack.geoclaw onto geoclaw/src/python/geoclaw and so on.  Which tree that
+# is has to be one decision shared with tools/check_doc_warnings.py, or the
+# warning baseline stops being comparable -- hence tools/clawroot.py.
+# Set CLAW to build against the pinned tree (`make claw-pin`).
+from clawroot import claw_root
+clawpack_root = claw_root()
+# Ahead of site-packages, so a pip-installed or editable clawpack cannot
+# shadow the tree we mean to document.
+sys.path.insert(0, clawpack_root)
 print("clawpack_root = %s" % clawpack_root)
 sys.path.append(os.path.join(clawpack_root,'amrclaw/doc'))
 sys.path.append(os.path.join(clawpack_root,'visclaw/doc'))
@@ -63,10 +73,17 @@ extensions = ['sphinx.ext.autodoc',
               'srclinks']
 
 
-# autodoc imports the documented modules at build time.  petclaw/petsc4py is
-# optional, heavy, and currently untested in the pip-only doc-build environment
-# (including CI), so mock it to keep autodoc imports from failing.  Add further
-# entries here if other optional/compiled modules fail to import.
+# autodoc imports the documented modules at build time, so anything they
+# import at module scope has to be installed -- or mocked here.  The rule, and
+# tools/check_doc_env.py enforces it: a module is either pinned in
+# tools/requirements-docs.txt or listed below, never neither.  A module that is
+# neither makes the build succeed or fail depending on what the person running
+# it happens to have installed, which is how the warning baseline stopped being
+# portable in the first place.
+#
+# Mock the heavy and platform-specific ones (petsc4py here; vtk, gdal, tables
+# would belong here too if anything imported them eagerly).  Pin the light
+# pure-wheel ones instead: mocking degrades the rendered signatures.
 autodoc_mock_imports = ['petsc4py', 'clawpack.petclaw']
 
 

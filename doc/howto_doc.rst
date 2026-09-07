@@ -131,9 +131,9 @@ introduced warnings cause a non-zero exit, so you can fix the backlog
 gradually without the check going red on unrelated pages.
 
 If you intentionally add or remove warnings (e.g. after fixing a batch of
-them), regenerate and commit the baseline::
-
-    make checkwarnings-update
+them), regenerate and commit the baseline with `make checkwarnings-update` --
+but see :ref:`howto_doc_pinned_tree` first, because it only produces a
+reproducible result in the pinned environment.
 
 To ignore the baseline entirely and report **every** remaining warning --
 the goal once the backlog has been driven to zero -- use::
@@ -141,17 +141,59 @@ the goal once the backlog has been driven to zero -- use::
     make checkwarnings-strict
 
 The same check runs in CI (`.github/workflows/docs.yml`) on pull requests to
-`dev` and the current release branch.  Because `autodoc` imports the clawpack
-packages, CI installs them with `pip`; the optional parallel package
-`petclaw` (and `petsc4py`) is not installed but is instead listed in
-`autodoc_mock_imports` in `conf.py`.
+`dev` and the current release branch.
+
+.. _howto_doc_pinned_tree:
+
+The pinned source tree
+^^^^^^^^^^^^^^^^^^^^^^
+
+`autodoc` documents a Clawpack **source tree**, not an installed clawpack:
+`conf.py` puts `$CLAW` on `sys.path` and the `clawpack/__init__.py` shim in
+the `clawpack/clawpack` super-repo maps `clawpack.geoclaw` onto
+`geoclaw/src/python/geoclaw`, and so on.  So the set of warnings depends on
+which Clawpack you are pointing at as much as on the docs themselves, and two
+files pin that:
+
+`tools/requirements-docs.txt`
+    the Sphinx toolchain and the third-party packages Clawpack imports, all
+    at exact versions.
+
+`tools/clawpack-ref.txt`
+    each Clawpack repository, by commit.
+
+`make claw-pin` clones the second into `$CLAW/doc/.claw-pin` (borrowing
+objects from your own checkouts, so it takes seconds), and `$CLAW` selects
+it.  Regenerate the baseline against both, in a virtualenv with **no**
+clawpack installed::
+
+    cd $CLAW/doc/doc
+    python -m venv /tmp/docvenv && /tmp/docvenv/bin/pip install -r tools/requirements-docs.txt
+    PATH=/tmp/docvenv/bin:$PATH make claw-pin
+    PATH=/tmp/docvenv/bin:$PATH CLAW=$(cd ../.claw-pin && pwd) make checkwarnings-update
+
+Then commit `tools/doc_warnings_baseline.txt`.  `checkwarnings-update`
+refuses to run against a tree that does not match the pin, because that is
+exactly how the baseline once filled up with one laptop's absolute paths.
+
+A fresh virtualenv matters: an editable or pip-installed clawpack registers a
+meta-path finder that shadows the source tree whatever `sys.path` says.
+`make checkenv` reports that, and every other reason autodoc might not be
+able to import what the docs reference::
+
+    make checkenv
+
+To bump the pinned Clawpack, edit `tools/clawpack-ref.txt` and repeat the
+regeneration above in the same commit.
 
 .. note::
 
-   The exact set of warnings depends on which packages are importable, so the
-   baseline is environment dependent.  Regenerate it in the same environment
-   the CI workflow uses (see `tools/requirements-docs.txt`); the workflow can
-   be run manually to produce an updated baseline as an artifact.
+   One warning class is never baselined, however long it has been present:
+   `autodoc: failed to import` means the API pages for those modules come out
+   **empty**, which no baseline should be allowed to hide.
+   `check_doc_warnings.py` reports them separately and fails regardless, and
+   `tools/check_built_site.sh` independently asserts that the built `dev`
+   API pages contain generated content before anything is published.
 
 **Possible future enhancements:**
 

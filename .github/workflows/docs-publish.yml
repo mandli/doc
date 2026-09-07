@@ -25,6 +25,12 @@ name: docs-publish
 #     from committed refs via `git archive`, never the working tree, so
 #     `make versions` on a PR would show reviewers the site *without* the PR's
 #     changes.
+#
+#   * The Clawpack source tree autodoc documents is pinned by commit in
+#     doc/tools/clawpack-ref.txt and set up by .github/actions/setup-doc-build.
+#     Every version directory is therefore built against the same source; the
+#     historical ones get API docs from newer code, which is also what the
+#     manual `make versions` + rsync_doc.sh procedure always did.
 
 on:
   push:
@@ -68,23 +74,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           persist-credentials: false
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: pip
-
-      - name: Install system build dependencies
-        run: sudo apt-get update && sudo apt-get install -y gfortran
-
-      - name: Install the documentation toolchain
-        run: pip install -r doc/tools/requirements-docs.txt
-
-      - name: Install clawpack (for autodoc imports)
-        run: pip install clawpack
+      - uses: ./.github/actions/setup-doc-build
 
       # Single-version build of this PR's working tree, into doc/_build1/html.
       - name: Build the docs
@@ -106,24 +100,12 @@ jobs:
       # fetch-depth: 0 gets the full history *and* all tags.  Both are
       # required: sphinx-multiversion builds each version from `git archive`
       # of its ref, and most versions are tags.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: pip
-
-      - name: Install system build dependencies
-        run: sudo apt-get update && sudo apt-get install -y gfortran
-
-      - name: Install the documentation toolchain
-        run: pip install -r doc/tools/requirements-docs.txt
-
-      - name: Install clawpack (for autodoc imports)
-        run: pip install clawpack
+      - uses: ./.github/actions/setup-doc-build
 
       # actions/checkout leaves only the checked-out ref as a local branch,
       # and sphinx-multiversion ignores remote-tracking refs, so v5.14.x
@@ -162,7 +144,7 @@ jobs:
       TARGET_BRANCH: ${{ github.event_name == 'push' && 'master' || inputs.target_branch }}
       PRUNE: ${{ inputs.prune && '--prune' || '' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           persist-credentials: false
 
