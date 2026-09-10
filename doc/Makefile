@@ -229,6 +229,7 @@ checkwarnings-strict:
 	python tools/check_doc_warnings.py --strict
 
 tools-tests:
+	python tools/test_check_doc_env.py
 	python tools/test_check_doc_warnings.py
 	python tools/test_promote_latest.py
 	bash tools/test_check_published_tree.sh
